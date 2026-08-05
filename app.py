@@ -47,8 +47,8 @@ from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import Chroma
 from langchain_core.prompts import PromptTemplate, ChatPromptTemplate
-from langchain.chains.combine_documents import create_stuff_documents_chain
-from langchain.chains.retrieval import create_retrieval_chain
+#from langchain.chains.combine_documents import create_stuff_documents_chain
+#from langchain.chains.retrieval import create_retrieval_chain
 
 # Streamlit Page Setup
 st.set_page_config(page_title="Sephora AI Brand Engine", layout="wide")
