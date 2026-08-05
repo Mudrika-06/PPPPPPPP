@@ -1,24 +1,38 @@
+# import os
+# import re
+# import json
+# import shutil
+# import streamlit as st
+# from typing import List, Optional
+# from pydantic import BaseModel
+
+
+# # ==============================================================================
+# # UPDATED LANGCHAIN & LLM IMPORTS
+# # ==============================================================================
+# from langchain_groq import ChatGroq
+# from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
+# from langchain_community.document_loaders import PyPDFLoader
+# from langchain_text_splitters import RecursiveCharacterTextSplitter
+# from langchain_community.vectorstores import Chroma
+# from langchain_core.prompts import PromptTemplate, ChatPromptTemplate
+# from langchain.chains import create_stuff_documents_chain, create_retrieval_chain
+
+#--------
 import os
 import re
 import json
-import shutil
 import streamlit as st
 from typing import List, Optional
 from pydantic import BaseModel
 
-
-# ==============================================================================
-# UPDATED LANGCHAIN & LLM IMPORTS
-# ==============================================================================
+# Safe, stable imports (No chain factory functions needed)
 from langchain_groq import ChatGroq
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import Chroma
-from langchain_core.prompts import PromptTemplate, ChatPromptTemplate
-from langchain.chains import create_stuff_documents_chain, create_retrieval_chain
-
-#--------
+from langchain_core.prompts import PromptTemplate
 
 # Document Chain Imports (Fixed)
 from langchain.chains.combine_documents import create_stuff_documents_chain
@@ -225,30 +239,57 @@ with tabs[6]:
         st.json(agent_6_image_prompt(product))
 
 with tabs[7]:
-    st.header("RAG Document Chat")
+    st.header("📚 RAG Document Chat")
     uploaded_file = st.file_uploader("Upload Sephora Brand PDF", type=["pdf"])
+    
     if uploaded_file is not None:
         os.makedirs("./uploaded_docs", exist_ok=True)
         file_path = os.path.join("./uploaded_docs", uploaded_file.name)
         with open(file_path, "wb") as f:
             f.write(uploaded_file.getvalue())
         
-        loader = PyPDFLoader(file_path)
-        docs = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=150).split_documents(loader.load())
-        embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001", google_api_key=google_api_key)
-        st.session_state.vector_store = Chroma.from_documents(documents=docs, embedding=embeddings)
-        st.success("Document indexed successfully!")
+        with st.spinner("Processing and indexing document..."):
+            loader = PyPDFLoader(file_path)
+            docs = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=150).split_documents(loader.load())
+            embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001", google_api_key=google_api_key)
+            st.session_state.vector_store = Chroma.from_documents(documents=docs, embedding=embeddings)
+            st.success("Document indexed successfully!")
 
-    user_query = st.text_input("Ask a question about the uploaded document:")
+    st.divider()
+    user_query = st.text_input("Ask a question about the uploaded Sephora document:")
+    
     if st.button("Ask RAG Agent") and user_query:
         if "vector_store" not in st.session_state:
-            st.error("Please upload and index a PDF first.")
+            st.error("Please upload and index a PDF document first.")
         else:
-            retriever = st.session_state.vector_store.as_retriever(search_kwargs={"k": 3})
-            prompt = ChatPromptTemplate.from_messages([
-                ("system", "Answer concisely using context:\n\n{context}"),
-                ("human", "{input}")
-            ])
-            chain = create_retrieval_chain(retriever, create_stuff_documents_chain(llm_groq, prompt))
-            res = chain.invoke({"input": user_query})
-            st.markdown(f"**Answer:** {res.get('answer')}")
+            with st.spinner("Retrieving relevant context and generating answer..."):
+                # 1. Retrieve relevant document chunks
+                retriever = st.session_state.vector_store.as_retriever(search_kwargs={"k": 3})
+                retrieved_docs = retriever.invoke(user_query)
+                
+                # 2. Combine chunks into text context
+                context_text = "\n\n".join([doc.page_content for doc in retrieved_docs])
+                
+                # 3. Direct RAG Prompt
+                rag_prompt = PromptTemplate.from_template(
+                    """You are an assistant for question-answering tasks.
+                        Use the following pieces of retrieved context to answer the question accurately and concisely.
+                        If you don't know the answer, state that you don't know based on the document.
+                        
+                        Context:
+                        {context}
+                        
+                        Question: {question}
+                        Answer:"""
+                     )
+                
+                # 4. Invoke LLM chain via standard pipe (|)
+                rag_chain = rag_prompt | llm_groq
+                response = rag_chain.invoke({"context": context_text, "question": user_query})
+                
+                # 5. Render Output
+                st.markdown(f"### Answer:\n{response.content}")
+                
+                with st.expander("View Source Context Chunks"):
+                    for idx, doc in enumerate(retrieved_docs, start=1):
+                        st.info(f"**Chunk {idx}:**\n{doc.page_content}")
