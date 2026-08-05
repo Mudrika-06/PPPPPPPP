@@ -1,0 +1,10 @@
+streamlit
+pydantic
+langchain
+langchain-core
+langchain-community
+langchain-groq
+langchain-google-genai
+chromadb
+pypdf
+google-genai
