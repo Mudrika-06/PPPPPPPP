@@ -6,6 +6,20 @@ import streamlit as st
 from typing import List, Optional
 from pydantic import BaseModel
 
+
+# ==============================================================================
+# UPDATED LANGCHAIN & LLM IMPORTS
+# ==============================================================================
+from langchain_groq import ChatGroq
+from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
+from langchain_community.document_loaders import PyPDFLoader
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_community.vectorstores import Chroma
+from langchain_core.prompts import PromptTemplate, ChatPromptTemplate
+from langchain.chains import create_stuff_documents_chain, create_retrieval_chain
+
+# ... rest of your code follows below ...
+
 # LangChain & AI Libraries
 from langchain_groq import ChatGroq
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
